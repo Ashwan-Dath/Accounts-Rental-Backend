@@ -83,3 +83,127 @@ exports.getAllAdsPublic = async (req, res) => {
     });
   }
 };
+
+const fetchLatestAdsByDuration = async (unit) => {
+  return Ad.find({
+    isActive: true,
+    'duration.unit': unit
+  })
+    .sort({ createdAt: -1 })
+    .limit(4)
+    .populate('platform')
+    .populate('user', '-password');
+};
+
+const createDurationHandler = (unit) => async (req, res) => {
+  try {
+    const ads = await fetchLatestAdsByDuration(unit);
+    res.status(200).json({
+      success: true,
+      data: ads
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || `Failed to fetch ${unit} ads`
+    });
+  }
+};
+
+exports.getDayAds = createDurationHandler('day');
+exports.getWeekAds = createDurationHandler('week');
+exports.getMonthAds = createDurationHandler('month');
+exports.getYearAds = createDurationHandler('year');
+
+// @desc    Get ad by ID
+// @route   POST /ads/getAdbyId
+// @access  Public
+exports.getAdById = async (req, res) => {
+  try {
+    const { adId } = req.body || {};
+
+    if (!adId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide adId'
+      });
+    }
+
+    const ad = await Ad.findById(adId)
+      .populate('platform')
+      .populate('user', '-password');
+
+    if (!ad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: ad
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch ad'
+    });
+  }
+};
+
+// @desc    Get ad poster details by ad ID
+// @route   POST /ads/getDetailsById
+// @access  Public
+exports.getAdDetailsById = async (req, res) => {
+  try {
+    const { adId } = req.body || {};
+
+    if (!adId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide adId'
+      });
+    }
+
+    const ad = await Ad.findById(adId)
+      .populate('platform')
+      .populate('user', '-password');
+
+    if (!ad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad not found'
+      });
+    }
+
+    if (!ad.user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad owner not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ad,
+        poster: {
+          firstName: ad.user.firstName,
+          lastName: ad.user.lastName,
+          email: ad.user.email,
+          phone: ad.user.phone,
+          address: ad.user.address,
+          city: ad.user.city,
+          state: ad.user.state,
+          zipCode: ad.user.zipCode
+        }
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch ad details'
+    });
+  }
+};
