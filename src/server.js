@@ -9,6 +9,7 @@ const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const publicRoutes = require('./routes/publicRoutes');
+const adRoutes = require('./routes/adRoutes');
 
 // Initialize Express app
 const app = express();
@@ -27,6 +28,7 @@ app.use('/admin', adminRoutes);
 app.use('/category', categoryRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/public', publicRoutes);
+app.use('/ads', adRoutes);
 
 // Basic route
 app.get('/', (req, res) => {
