@@ -43,14 +43,14 @@ const AdSchema = new mongoose.Schema(
       type: DurationSchema,
       required: true
     },
-    contactEmail: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-      match: [
-        /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
-        'Please provide a valid contact email'
+  contactEmail: {
+    type: String,
+    required: false,
+    lowercase: true,
+    trim: true,
+    match: [
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
+      'Please provide a valid contact email'
       ]
     },
     user: {
