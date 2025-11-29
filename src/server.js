@@ -4,6 +4,7 @@ require('dotenv').config();
 
 // Import routes and controllers
 const connectDB = require('./config/database');
+const seedCategories = require('./config/seedCategories');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -18,7 +19,19 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors());
+const allowedOrigins = [process.env.CLIENT_ORIGIN || 'http://localhost:5173'];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps)
+      if (!origin) return callback(null, true);
+      return allowedOrigins.includes(origin)
+        ? callback(null, true)
+        : callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -62,9 +75,14 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`\n========================================`);
-  console.log(`✓ Server is running on port ${PORT}`);
-  console.log(`✓ Environment: ${process.env.NODE_ENV}`);
+  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🌎 Environment: ${process.env.NODE_ENV}`);
   console.log(`========================================\n`);
+});
+
+// Seed default categories on startup (idempotent)
+seedCategories().catch((err) => {
+  console.error('Category seeding failed:', err?.message || err);
 });
 
 // Handle graceful shutdown

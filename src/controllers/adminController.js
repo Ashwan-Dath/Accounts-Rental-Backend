@@ -3,6 +3,8 @@ const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const Admin = require('../models/Admin');
 const User = require('../models/User');
+const Category = require('../models/Category');
+const Ad = require('../models/Ad');
 
 const OTP_EXPIRY_MINUTES = Number(process.env.OTP_EXPIRY_MINUTES) || 10;
 
@@ -291,6 +293,75 @@ exports.getAllUsers = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to fetch users'
+    });
+  }
+};
+
+// @desc Get dashboard analytics summary
+// @route GET /admin/analytics/summary
+// @access Private (admin)
+exports.getAnalyticsSummary = async (req, res) => {
+  try {
+    const [usersTotal, platformsTotal, adsTotal, adsByPlatformAgg] =
+      await Promise.all([
+        User.countDocuments(),
+        Category.countDocuments(),
+        Ad.countDocuments({ isActive: true }),
+        Ad.aggregate([
+          { $match: { isActive: true } },
+          {
+            $group: {
+              _id: '$platform',
+              count: { $sum: 1 }
+            }
+          },
+          {
+            $lookup: {
+              from: 'categories',
+              localField: '_id',
+              foreignField: '_id',
+              as: 'platformDoc'
+            }
+          },
+          {
+            $unwind: {
+              path: '$platformDoc',
+              preserveNullAndEmptyArrays: true
+            }
+          },
+          {
+            $project: {
+              _id: 0,
+              platformId: { $ifNull: ['$_id', null] },
+              count: 1,
+              platformName: {
+                $ifNull: ['$platformDoc.platform', 'Unknown platform']
+              }
+            }
+          },
+          { $sort: { count: -1, platformName: 1 } }
+        ])
+      ]);
+
+    const adsByPlatform = adsByPlatformAgg.map((item) => ({
+      id: item.platformId ? item.platformId.toString() : null,
+      name: item.platformName || 'Unknown platform',
+      count: item.count || 0
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: {
+        users: usersTotal,
+        platforms: platformsTotal,
+        ads: adsTotal,
+        adsByPlatform
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch analytics summary'
     });
   }
 };

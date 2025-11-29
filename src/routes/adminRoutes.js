@@ -6,7 +6,8 @@ const {
   loginAdmin,
   verifyAdminOtp,
   resendAdminOtp,
-  getAllUsers
+  getAllUsers,
+  getAnalyticsSummary
 } = require('../controllers/adminController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -16,5 +17,11 @@ router.post('/login', loginAdmin);
 router.post('/verifyOtp', verifyAdminOtp);
 router.post('/resendOtp', resendAdminOtp);
 router.get('/users/all', protect, authorize('admin'), getAllUsers);
+router.get(
+  '/analytics/summary',
+  protect,
+  authorize('admin'),
+  getAnalyticsSummary
+);
 
 module.exports = router;

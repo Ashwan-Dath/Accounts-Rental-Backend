@@ -1,5 +1,9 @@
 const Ad = require('../models/Ad');
 
+// Escape regex special chars so the search query is treated as a plain string
+const escapeRegex = (value = '') =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 // @desc    Post a new ad
 // @route   POST /users/postAd
 // @access  Private (User)
@@ -15,13 +19,12 @@ exports.postAd = async (req, res) => {
       price === undefined ||
       !duration ||
       duration.value === undefined ||
-      !duration.unit ||
-      !contactEmail
+      !duration.unit
     ) {
       return res.status(400).json({
         success: false,
         message:
-          'Please provide title, description, platform, price, duration (value & unit), and contactEmail'
+          'Please provide title, description, platform, price, and duration (value & unit)'
       });
     }
 
@@ -67,7 +70,17 @@ exports.postAd = async (req, res) => {
 // @access  Public
 exports.getAllAdsPublic = async (req, res) => {
   try {
-    const ads = await Ad.find({ isActive: true })
+    const { query = '' } = req.query || {};
+    const filters = { isActive: true };
+
+    if (query.trim()) {
+      filters.title = {
+        $regex: escapeRegex(query.trim()),
+        $options: 'i'
+      };
+    }
+
+    const ads = await Ad.find(filters)
       .sort({ createdAt: -1 })
       .populate('platform')
       .populate('user', '-password');
@@ -110,10 +123,153 @@ const createDurationHandler = (unit) => async (req, res) => {
   }
 };
 
-exports.getDayAds = createDurationHandler('day');
+exports.getDayAds = createDurationHandler('hour');
 exports.getWeekAds = createDurationHandler('week');
 exports.getMonthAds = createDurationHandler('month');
 exports.getYearAds = createDurationHandler('year');
+
+// @desc    Get ads for the current user
+// @route   GET /users/ads/mine
+// @access  Private
+exports.getMyAds = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const ads = await Ad.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .populate('platform');
+
+    res.status(200).json({
+      success: true,
+      data: ads
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch your ads'
+    });
+  }
+};
+
+// @desc    Get a single ad owned by current user
+// @route   GET /users/ads/:id
+// @access  Private
+exports.getMyAdById = async (req, res) => {
+  try {
+    const adId = req.params.id;
+    const userId = req.user.id;
+
+    const ad = await Ad.findOne({ _id: adId, user: userId }).populate('platform');
+
+    if (!ad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: ad
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to fetch ad'
+    });
+  }
+};
+
+// @desc    Update an ad owned by current user
+// @route   PUT /users/ads/:id
+// @access  Private
+exports.updateMyAd = async (req, res) => {
+  try {
+    const adId = req.params.id;
+    const userId = req.user.id;
+    const {
+      title,
+      description,
+      platform,
+      price,
+      duration,
+      contactEmail
+    } = req.body || {};
+
+    const ad = await Ad.findOne({ _id: adId, user: userId });
+    if (!ad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad not found'
+      });
+    }
+
+    if (title !== undefined) ad.title = title;
+    if (description !== undefined) ad.description = description;
+    if (platform !== undefined) ad.platform = platform;
+    if (price !== undefined) ad.price = price;
+
+    if (duration) {
+      if (duration.value === undefined || !duration.unit) {
+        return res.status(400).json({
+          success: false,
+          message: 'Duration value and unit are required'
+        });
+      }
+      ad.duration = {
+        value: duration.value,
+        unit: duration.unit
+      };
+    }
+
+    if (contactEmail !== undefined) ad.contactEmail = contactEmail;
+
+    ad.updatedBy = userId;
+    await ad.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ad updated successfully',
+      data: ad
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to update ad'
+    });
+  }
+};
+
+// @desc    Soft delete (deactivate) an ad owned by current user
+// @route   DELETE /users/ads/:id
+// @access  Private
+exports.deactivateMyAd = async (req, res) => {
+  try {
+    const adId = req.params.id;
+    const userId = req.user.id;
+
+    const ad = await Ad.findOne({ _id: adId, user: userId });
+    if (!ad) {
+      return res.status(404).json({
+        success: false,
+        message: 'Ad not found'
+      });
+    }
+
+    ad.isActive = false;
+    ad.updatedBy = userId;
+    await ad.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Ad deactivated successfully'
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to deactivate ad'
+    });
+  }
+};
 
 // @desc    Get ad by ID
 // @route   POST /ads/getAdbyId

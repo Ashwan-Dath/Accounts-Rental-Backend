@@ -86,7 +86,7 @@ exports.getAllCategoriesPublic = async (req, res) => {
   try {
     const categories = await Category.find().sort({ createdAt: -1 });
 
-    console.log('Fetching all categories for public endpoint',categories);
+    // console.log('Fetching all categories for public endpoint',categories);
     res.status(200).json({
       success: true,
       data: categories
